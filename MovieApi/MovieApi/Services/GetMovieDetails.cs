@@ -4,13 +4,14 @@ using MovieApi.Shared;
 using MovieApi.Models;
 using Newtonsoft.Json;
 using MovieApi.Services.Interfaces;
+using System.Net.Http.Headers;
 
 namespace MovieApi.Services
 {
     public class GetMovieDetails
     {
         private readonly ExternalApiSettings _externalApiSettings;
-        private readonly IBuildURLServices _buildURLService;
+        private IBuildURLServices _buildURLService;
 
         public GetMovieDetails(ExternalApiSettings externalApiSettings)
         {
@@ -18,18 +19,25 @@ namespace MovieApi.Services
             _buildURLService = new BuildURLServices();
         }
 
+        /// <summary>
+        /// Gets the movie details async.
+        /// </summary>
+        /// <returns>The movie details</returns>
+        /// <param name="provider">Provider.</param>
+        /// <param name="id">Identifier.</param>
         public async Task<MovieDetails> GetMovieDetailsAsync(string provider, string id)
         {
-            using (var client = new HttpClient())
+            using (HttpClient client = new HttpClient())
             {
                 client.DefaultRequestHeaders.Add(_externalApiSettings.TokenName, _externalApiSettings.TokenValue);
-                string url = _buildURLService.GetURL(id,provider, _externalApiSettings);
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-                var response = await client.GetAsync(url);
-                response.EnsureSuccessStatusCode();
+                string url = _buildURLService.GetURL(id, provider, _externalApiSettings);
 
-                var stringResult = await response.Content.ReadAsStringAsync();
-                var json = JsonConvert.DeserializeObject<MovieDetails>(stringResult);
+                HttpResponseMessage response = await client.GetAsync(url);
+
+                string stringResult = await response.Content.ReadAsStringAsync();
+                MovieDetails json = JsonConvert.DeserializeObject<MovieDetails>(stringResult);
                 return json;
             }
         }

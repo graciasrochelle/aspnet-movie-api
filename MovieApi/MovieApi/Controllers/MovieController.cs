@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using MovieApi.Models;
 using MovieApi.Services;
@@ -14,14 +15,16 @@ namespace MovieApi.Controllers
     public class MovieController : Controller
     {
         private readonly ExternalApiSettings _externalApiSettings;
-        private readonly IMovieServices _movieServices;
-        private readonly ILogger _logger;
+        private IMovieServices _movieServices;
+        private ILogger _logger;
+        private IMemoryCache _cache;
 
-        public MovieController(ExternalApiSettings externalApiSettings, ILogger<TestController> logger)
+        public MovieController(ExternalApiSettings externalApiSettings, ILogger<MovieController> logger, IMemoryCache memoryCache)
         {
-            _movieServices = new MovieServices(externalApiSettings);
+            _movieServices = new MovieServices(externalApiSettings, memoryCache);
             _externalApiSettings = externalApiSettings;
             _logger = logger;
+            _cache = memoryCache;
         }
 
         [HttpGet]
@@ -33,9 +36,9 @@ namespace MovieApi.Controllers
             }
             else
             {
-                var response = await _movieServices.Get();
+                IEnumerable<Movie> response = await _movieServices.Get();
                 _logger.LogInformation("MovieController: GetMoviesAsync", " response received..");
-                return Ok(response);
+                return Ok(Json(response));
             }
         }
 
@@ -48,9 +51,13 @@ namespace MovieApi.Controllers
             }
             else
             {
-                var response = await _movieServices.Get(provider, id);
+                MovieDetails response = await _movieServices.Get(provider, id);
                 _logger.LogInformation("MovieController: GetMovie", " response received for ID::" + id + " and Provider::" + provider);
-                return Ok(response);
+                if (response == null)
+                {
+                    return NoContent();
+                }
+                return Ok(Json(response));
             }
         }
     }

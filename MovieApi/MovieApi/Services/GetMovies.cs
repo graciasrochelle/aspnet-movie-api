@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using MovieApi.Models;
 using MovieApi.Services.Interfaces;
@@ -20,11 +22,17 @@ namespace MovieApi.Services
             _buildURLService = new BuildURLServices();
         }
 
+        /// <summary>
+        /// Gets the list of movie async.
+        /// </summary>
+        /// <returns>The list of movie async.</returns>
         public async Task<IEnumerable<Movie>> GetListOfMovieAsync()
         {
-            using (var client = new HttpClient())
+            using (HttpClient client = new HttpClient())
             {
                 client.DefaultRequestHeaders.Add(_externalApiSettings.TokenName, _externalApiSettings.TokenValue);
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
                 List<string> urlList = _buildURLService.GetURL(_externalApiSettings);
 
                 IEnumerable<Task<IEnumerable<Movie>>> downloadTasksQuery =
@@ -34,7 +42,7 @@ namespace MovieApi.Services
 
                 Task<IEnumerable<Movie>> firstFinishedTask = await Task.WhenAny(downloadTasks);
 
-                var data = await firstFinishedTask;
+                IEnumerable<Movie> data = await firstFinishedTask;
 
                 return data;
             }
@@ -42,9 +50,9 @@ namespace MovieApi.Services
 
         async Task<IEnumerable<Movie>> ProcessURLAsync(string url, HttpClient client)
         {
-            var response = await client.GetAsync(url);
-            var stringResult = await response.Content.ReadAsStringAsync();
-            var json = JsonConvert.DeserializeObject<RootObject>(stringResult);
+            HttpResponseMessage response =  client.GetAsync(url).Result;
+            string stringResult = await response.Content.ReadAsStringAsync();
+            RootObject json = JsonConvert.DeserializeObject<RootObject>(stringResult);
 
             foreach (var movie in json.Movies)
             {
